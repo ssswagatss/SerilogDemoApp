@@ -28,10 +28,16 @@ namespace SerilogDemo.Controllers
         {
             for (int i = 0; i < 100; i++)
             {
-                if (i == 55)
-                {
-                    _logger.LogInformation("WeatherForecastController is Called {anyVariableNmae}", i);
-                }
+                _logger.LogInformation("WeatherForecastController is Called {anyVariableNmae}", i);
+            }
+
+            try
+            {
+                throw new Exception("This is a custom exception");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Exception thrown from WeatherForecastController", ex);
             }
             var rng = new Random();
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
