@@ -26,6 +26,13 @@ namespace SerilogDemo.Controllers
         [HttpGet]
         public IEnumerable<WeatherForecast> Get()
         {
+            for (int i = 0; i < 100; i++)
+            {
+                if (i == 55)
+                {
+                    _logger.LogInformation("WeatherForecastController is Called {anyVariableNmae}", i);
+                }
+            }
             var rng = new Random();
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
             {
