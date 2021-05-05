@@ -3,36 +3,38 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Sinks.Elasticsearch;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace SerilogDemo
 {
     public class Program
     {
-        private static IConfiguration Configuration
-        {
-            get
-            {
-                var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-                var builder = new ConfigurationBuilder();
-                builder.SetBasePath(Directory.GetCurrentDirectory());
-                builder.AddJsonFile($"appsettings.json", optional: false, reloadOnChange: true);
-                builder.AddJsonFile($"appsettings.{env}.json", optional: false, reloadOnChange: true);
-                builder.AddEnvironmentVariables();
-                return builder.Build();
-            }
-        }
-
         public static void Main(string[] args)
         {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile(
+                    $"appsettings.{environment}.json",
+                    optional: true)
+                .Build();
+
             Log.Logger = new LoggerConfiguration()
-                            .ReadFrom.Configuration(Configuration)
-                            //.MinimumLevel.Error() // Adds a min error logging level
-                            .CreateLogger();
+                .Enrich.FromLogContext()
+                .Enrich.WithMachineName()
+                .WriteTo.Debug()
+                .WriteTo.Console()
+                .WriteTo.Elasticsearch(ConfigureElasticSink(configuration, environment))
+                .Enrich.WithProperty("Environment", environment)
+                .ReadFrom.Configuration(configuration)
+                .CreateLogger();
+
             try
             {
                 Log.Information("The Webapp is Starting up");
@@ -55,5 +57,14 @@ namespace SerilogDemo
                 {
                     webBuilder.UseStartup<Startup>();
                 });
+
+        private static ElasticsearchSinkOptions ConfigureElasticSink(IConfigurationRoot configuration, string environment)
+        {
+            return new ElasticsearchSinkOptions(new Uri(configuration["ElasticConfiguration:Uri"]))
+            {
+                AutoRegisterTemplate = true,
+                IndexFormat = $"{Assembly.GetExecutingAssembly().GetName().Name.ToLower().Replace(".", "-")}-{environment?.ToLower().Replace(".", "-")}-{DateTime.UtcNow:yyyy-MM}"
+            };
+        }
     }
 }
